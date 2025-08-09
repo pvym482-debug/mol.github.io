@@ -3,119 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>キャラクター紹介サイト</title>
+    <title>創作学園名鑑</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Noto Sans JP', sans-serif;
         }
-        /* モーダルのアニメーション */
+        .character-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+        }
+        .character-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
         .modal-enter-active { opacity: 1; transform: scale(1); }
         .modal-leave-active { opacity: 0; transform: scale(0.95); }
         .modal-enter, .modal-leave-active { opacity: 0; transform: scale(0.95); }
-        #modal-content, #dialogue-modal-content { transition: all 0.3s ease-out; }
-
-        /* カードホバーエフェクト */
-        .character-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
-        .character-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
-
-        /* ナビゲーションのアクティブ状態 */
-        .nav-button.active {
-            background-color: #3b82f6; /* bg-blue-500 */
-            color: white;
-        }
-
-        /* 相関図スタイル */
-        .chart-node {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .chart-node:hover {
-            transform: translate(-50%, -50%) scale(1.1);
-            z-index: 10;
-        }
-        .chart-node img {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-            object-fit: cover;
-        }
-        .chart-node p {
-            margin-top: 4px;
-            font-weight: bold;
-            font-size: 14px;
-            color: #1f2937; /* text-gray-800 */
-            background-color: rgba(255, 255, 255, 0.7);
-            padding: 2px 6px;
-            border-radius: 8px;
-        }
-        /* 比較表のバー */
-        .height-bar {
-            background: linear-gradient(to right, #60a5fa, #3b82f6);
-            transition: width 0.5s ease-in-out;
-        }
-        /* ローディングスピナー */
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border-left-color: #3b82f6;
-            animation: spin 1s ease infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        #modal-content { transition: all 0.3s ease-out; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
 
     <!-- ヘッダー -->
-    <header class="bg-white shadow-md py-4 sticky top-0 z-40">
-        <div class="container mx-auto px-6 flex flex-col sm:flex-row justify-between items-center">
-            <div class="text-center sm:text-left mb-4 sm:mb-0">
-                <h1 class="text-3xl font-bold text-gray-900">My Characters</h1>
-                <p class="text-gray-600 mt-1">創作キャラクターたちの世界へようこそ</p>
-            </div>
-            <!-- ナビゲーション -->
-            <nav class="flex space-x-1 sm:space-x-2 bg-gray-200 p-1 rounded-lg">
-                <button id="nav-gallery" class="nav-button px-3 py-2 rounded-md text-sm font-medium transition-colors">ギャラリー</button>
-                <button id="nav-chart" class="nav-button px-3 py-2 rounded-md text-sm font-medium transition-colors">相関図</button>
-                <button id="nav-comparison" class="nav-button px-3 py-2 rounded-md text-sm font-medium transition-colors">比較表</button>
-            </nav>
+    <header class="bg-white shadow-md py-6">
+        <div class="container mx-auto px-6 text-center">
+            <h1 class="text-4xl font-bold text-gray-900">〇〇学園 生徒名鑑</h1>
+            <p class="text-gray-600 mt-2">個性豊かな生徒たちが集う場所</p>
         </div>
     </header>
 
     <!-- メインコンテンツ -->
     <main class="container mx-auto px-6 py-12">
-        <!-- ギャラリー表示エリア -->
-        <div id="gallery-view">
-            <div id="character-gallery" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8"></div>
+        <!-- エラーメッセージ表示エリア -->
+        <div id="error-container" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
+            <strong class="font-bold">エラー：</strong>
+            <span class="block sm:inline">キャラクターデータの読み込みに失敗しました。カンマや括弧の閉じ忘れがないか、データを確認してください。</span>
         </div>
 
-        <!-- 相関図表示エリア -->
-        <div id="chart-view" class="hidden">
-            <div class="bg-white p-4 sm:p-8 rounded-lg shadow-lg">
-                <div id="chart-container" class="relative w-full h-[600px] bg-gray-50 rounded-md overflow-hidden">
-                    <svg id="chart-svg" class="absolute top-0 left-0 w-full h-full" style="pointer-events: none;"></svg>
-                    <!-- ラベルはJSでHTML要素として追加 -->
-                </div>
-            </div>
-        </div>
-
-        <!-- 比較表表示エリア -->
-        <div id="comparison-view" class="hidden">
-            <div class="bg-white p-4 sm:p-8 rounded-lg shadow-lg">
-                <h2 class="text-2xl font-bold mb-6 text-center">キャラクター身長比較</h2>
-                <div id="comparison-table-container" class="overflow-x-auto"></div>
-            </div>
+        <!-- キャラクターギャラリー -->
+        <div id="character-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            <!-- キャラクターカードはJavaScriptで生成されます -->
         </div>
     </main>
 
@@ -126,288 +54,171 @@
         </div>
     </footer>
 
-    <!-- キャラクター詳細モーダルウィンドウ -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden modal-enter">
-        <div id="modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative"></div>
-    </div>
-
-    <!-- 対話生成モーダル -->
-    <div id="dialogue-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden modal-enter">
-        <div id="dialogue-modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-lg relative p-8">
-            <button id="close-dialogue-modal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
-            <h2 id="dialogue-modal-title" class="text-2xl font-bold mb-4 text-center"></h2>
-            <div class="mt-6">
-                <button id="generate-dialogue-btn" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
-                    <span class="mr-2">✨</span> 会話のアイデアを生成
-                </button>
-                <div id="gemini-dialogue-output" class="mt-4 p-4 bg-gray-100 rounded-lg text-sm text-gray-700 whitespace-pre-wrap h-64 overflow-y-auto" style="display: none;"></div>
-                <div id="gemini-dialogue-loader" class="mt-4 flex justify-center" style="display: none;">
-                    <div class="spinner"></div>
-                </div>
-            </div>
+    <!-- モーダルウィンドウ（最初は非表示） -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+        <div id="modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative modal-enter">
+            <!-- モーダルの内容はJavaScriptで生成されます -->
         </div>
     </div>
 
-
     <script>
-        // === データ設定エリア ===
+    try {
+        // === あなたのキャラクターデータ36人分をここに入力してください ===
+        // データ入力の際は、各キャラクターの {} の後にカンマ(,)を忘れないようにご注意ください。
+        // 最後のキャラクターの後にはカンマは不要です。
         const characters = [
-            { id: 1, name: "リオ", image: "https://placehold.co/600x800/a7c7e7/ffffff?text=Rio", tagline: "風を操る見習い魔法使い", profile: "明るく元気な性格だが、少しドジな一面も。伝説の魔法使いになることを夢見て、相棒の精霊と共に旅をしている。好きな食べ物はリンゴパイ。", details: { "年齢": "16歳", "身長": "158cm", "能力": "風魔法（初級）", "所属": "王立魔法学園" }, position: { top: '20%', left: '20%' } },
-            { id: 2, name: "カイト", image: "https://placehold.co/600x800/778899/ffffff?text=Kaito", tagline: "影に潜む孤高の剣士", profile: "無口でクールな一匹狼。過去に大切なものを失い、何かを探して各地を放浪している。ぶっきらぼうだが、根は優しい。夜空を眺めるのが好き。", details: { "年齢": "19歳", "身長": "182cm", "能力": "影移動、高速剣技", "所属": "なし（元王国騎士団）" }, position: { top: '20%', left: '80%' } },
-            { id: 3, name: "ルナ", image: "https://placehold.co/600x800/e6e6fa/333333?text=Luna", tagline: "星の歌を聴く神官", profile: "慈悲深く、物静かな神殿の神官。星々の運行から未来を読み解く力を持つ。争いを好まず、すべての命が平和でありますようにと常に祈りを捧げている。", details: { "年齢": "21歳", "身長": "165cm", "能力": "治癒、予知", "所属": "星詠みの神殿" }, position: { top: '75%', left: '50%' } },
-            { id: 4, name: "ジン", image: "https://placehold.co/600x800/f0e68c/333333?text=Jin", tagline: "古代遺跡の謎を追う発明家", profile: "好奇心旺盛で楽天的な発明家。古代文明の技術に魅せられ、自作のガジェットを駆使して危険な遺跡にも臆せず飛び込んでいく。機械いじりが趣味。", details: { "年齢": "18歳", "身長": "175cm", "能力": "機械工学、古代文字解読", "所属": "冒険者ギルド" }, position: { top: '50%', left: '85%' } }
-        ];
-        const relationships = [
-            { source: 1, target: 2, label: "ライバル", color: "#ef4444" }, { source: 1, target: 3, label: "友情", color: "#22c55e" }, { source: 2, target: 3, label: "守るべき存在", color: "#3b82f6", oneway: true }, { source: 2, target: 4, label: "興味", color: "#8b5cf6" },
-        ];
-        // ========================
-
-        // 要素の取得
-        const galleryView = document.getElementById('gallery-view');
-        const chartView = document.getElementById('chart-view');
-        const comparisonView = document.getElementById('comparison-view');
-        const navGallery = document.getElementById('nav-gallery');
-        const navChart = document.getElementById('nav-chart');
-        const navComparison = document.getElementById('nav-comparison');
-        
-        const modal = document.getElementById('modal');
-        const modalContent = document.getElementById('modal-content');
-        
-        const dialogueModal = document.getElementById('dialogue-modal');
-        const closeDialogueModalBtn = document.getElementById('close-dialogue-modal');
-
-        // --- Gemini API呼び出し ---
-        async function callGemini(prompt, retries = 3, delay = 1000) {
-            const apiKey = ""; // APIキーは空のままにします。Canvas環境で自動的に提供されます。
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            
-            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-                    const result = await response.json();
-                    
-                    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
-                        return result.candidates[0].content.parts[0].text;
-                    } else {
-                        if (result.candidates?.[0]?.finishReason === 'SAFETY') {
-                            return "生成されたコンテンツは安全性の設定によりブロックされました。";
-                        }
-                        throw new Error("APIからの予期しないレスポンス形式です。");
-                    }
-                } catch (error) {
-                    console.error(`Attempt ${i + 1} failed:`, error);
-                    if (i === retries - 1) return `エラーが発生しました: ${error.message}`;
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2; // Exponential backoff
+            {
+                id: 1,
+                name: "朝日 陽太 (アサヒ ヨウタ)",
+                image: "https://placehold.co/400x600/ffedd5/4f46e5?text=Yota+A.",
+                details: {
+                    "出席番号": "1番",
+                    "誕生日": "8月1日",
+                    "部活": "バスケ部",
+                    "好きなこと": "体を動かすこと、友達と話すこと",
+                    "プロフィール": "いつも明るく元気なクラスの中心人物。誰にでも分け隔てなく接するムードメーカー。勉強は少し苦手。"
+                }
+            },
+            {
+                id: 2,
+                name: "月島 静 (ツキシマ シズカ)",
+                image: "https://placehold.co/400x600/e0e7ff/1e3a8a?text=Shizuka+T.",
+                details: {
+                    "出席番号": "15番",
+                    "誕生日": "11月10日",
+                    "部活": "文芸部",
+                    "好きなこと": "読書、静かな場所",
+                    "プロフィール": "物静かでミステリアスな雰囲気を持つ少女。成績優秀だが、あまり人と話すのは得意ではない。夜空を眺めるのが好き。"
+                }
+            },
+            {
+                id: 3,
+                name: "火野 駆 (ヒノ カケル)",
+                image: "https://placehold.co/400x600/fee2e2/b91c1c?text=Kakeru+H.",
+                details: {
+                    "出席番号": "22番",
+                    "誕生日": "4月25日",
+                    "部活": "陸上部",
+                    "好きなこと": "勝負事、辛い食べ物",
+                    "プロフィール": "負けず嫌いで情熱的な性格。短距離走のエースで、常に上を目指している。少し短気なのが玉に瑕。"
+                }
+            },
+            {
+                id: 4,
+                name: "水瀬 潤 (ミナセ ジュン)",
+                image: "https://placehold.co/400x600/dbeafe/1d4ed8?text=Jun+M.",
+                details: {
+                    "出席番号": "28番",
+                    "誕生日": "6月15日",
+                    "部活": "水泳部",
+                    "好きなこと": "音楽鑑賞、昼寝",
+                    "プロフィール": "マイペースで掴みどころのない性格。天才的な泳ぎのセンスを持つが、普段はのんびりしていることが多い。"
+                }
+            },
+            {
+                id: 5,
+                name: "木下 葉子 (キノシタ ヨウコ)",
+                image: "https://placehold.co/400x600/dcfce7/166534?text=Yoko+K.",
+                details: {
+                    "出席番号": "8番",
+                    "誕生日": "3月3日",
+                    "部活": "園芸部",
+                    "好きなこと": "植物の世話、お菓子作り",
+                    "プロフィール": "おっとりしていて優しい、癒やし系の女の子。学園の花壇の世話をいつもしている。少し天然なところがある。"
+                }
+            },
+            {
+                id: 6,
+                name: "金森 巧 (カナモリ タクミ)",
+                image: "https://placehold.co/400x600/fef9c3/a16207?text=Takumi+K.",
+                details: {
+                    "出席番号": "5番",
+                    "誕生日": "9月20日",
+                    "部活": "美術部",
+                    "好きなこと": "絵を描くこと、美しいもの",
+                    "プロフィール": "美的センスに優れた芸術家肌。繊細で完璧主義な一面も。自分の作品には絶対の自信を持っている。"
                 }
             }
-        }
+            // ... ここにあなたのキャラクターを続けて追加してください (合計36人分)
+        ];
+        // ==========================================================
 
-        // --- 表示切り替えロジック ---
-        function switchView(view) {
-            const views = { gallery: galleryView, chart: chartView, comparison: comparisonView };
-            const navs = { gallery: navGallery, chart: navChart, comparison: navComparison };
-            Object.keys(views).forEach(key => {
-                views[key].classList.add('hidden');
-                navs[key].classList.remove('active');
-            });
-            views[view].classList.remove('hidden');
-            navs[view].classList.add('active');
+        const gallery = document.getElementById('character-gallery');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
 
-            if (view === 'chart') displayChart();
-            if (view === 'comparison') displayComparisonTable();
-        }
-
-        navGallery.addEventListener('click', () => switchView('gallery'));
-        navChart.addEventListener('click', () => switchView('chart'));
-        navComparison.addEventListener('click', () => switchView('comparison'));
-
-        // --- ギャラリー表示 ---
-        function displayGallery() {
-            const gallery = document.getElementById('character-gallery');
+        // キャラクターカードを表示する関数
+        function displayCharacters() {
             gallery.innerHTML = '';
             characters.forEach(char => {
                 const card = document.createElement('div');
                 card.className = 'character-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer';
-                card.innerHTML = `<img src="${char.image}" alt="${char.name}" class="w-full h-80 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x600/ccc/ffffff?text=Image+Not+Found';"><div class="p-4"><h3 class="text-xl font-bold">${char.name}</h3><p class="text-gray-600 text-sm mt-1">${char.tagline}</p></div>`;
+                card.innerHTML = `
+                    <img src="${char.image}" alt="${char.name}" class="w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x600/ccc/ffffff?text=Image+Not+Found';">
+                    <div class="p-3 text-center">
+                        <h3 class="text-md font-bold truncate">${char.name}</h3>
+                    </div>
+                `;
                 card.addEventListener('click', () => openModal(char.id));
                 gallery.appendChild(card);
             });
         }
 
-        // --- 相関図表示 ---
-        function displayChart() {
-            const container = document.getElementById('chart-container');
-            const svg = document.getElementById('chart-svg');
-            container.querySelectorAll('.chart-node, .chart-label').forEach(el => el.remove());
-            svg.innerHTML = '';
-            
-            const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-            relationships.forEach(rel => {
-                if(rel.oneway) {
-                    const markerId = `arrow-${rel.color.replace('#', '')}`;
-                    if (!svg.querySelector(`#${markerId}`)) {
-                        defs.innerHTML += `<marker id="${markerId}" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="${rel.color}"></path></marker>`;
-                    }
-                }
-            });
-            svg.appendChild(defs);
-            
-            characters.forEach(char => {
-                const node = document.createElement('div');
-                node.className = 'chart-node';
-                node.style.top = char.position.top; node.style.left = char.position.left;
-                node.innerHTML = `<img src="${char.image}" alt="${char.name}" onerror="this.onerror=null;this.src='https://placehold.co/80x80/ccc/ffffff?text=N/A';"><p>${char.name}</p>`;
-                node.addEventListener('click', () => openModal(char.id));
-                container.appendChild(node);
-            });
-            
-            relationships.forEach(rel => {
-                const sourceChar = characters.find(c => c.id === rel.source);
-                const targetChar = characters.find(c => c.id === rel.target);
-                if (!sourceChar || !targetChar) return;
-                const contRect = container.getBoundingClientRect();
-                const x1 = parseFloat(sourceChar.position.left) / 100 * contRect.width;
-                const y1 = parseFloat(sourceChar.position.top) / 100 * contRect.height;
-                const x2 = parseFloat(targetChar.position.left) / 100 * contRect.width;
-                const y2 = parseFloat(targetChar.position.top) / 100 * contRect.height;
-                
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', x1); line.setAttribute('y1', y1); line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-                line.setAttribute('stroke', rel.color || '#6b7280'); line.setAttribute('stroke-width', '2.5');
-                if (rel.oneway) line.setAttribute('marker-start', `url(#arrow-${rel.color.replace('#', '')})`);
-                svg.appendChild(line);
-
-                const labelDiv = document.createElement('div');
-                labelDiv.className = 'chart-label absolute px-2 py-1 rounded-md text-sm font-bold cursor-pointer transition-transform hover:scale-110';
-                labelDiv.style.left = `${(x1 + x2) / 2}px`;
-                labelDiv.style.top = `${(y1 + y2) / 2}px`;
-                labelDiv.style.transform = 'translate(-50%, -50%)';
-                labelDiv.style.color = rel.color || '#1f2937';
-                labelDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                labelDiv.textContent = rel.label;
-                labelDiv.addEventListener('click', () => openDialogueModal(sourceChar, targetChar, rel));
-                container.appendChild(labelDiv);
-            });
-        }
-        new ResizeObserver(displayChart).observe(document.getElementById('chart-container'));
-
-        // --- 比較表表示 ---
-        function displayComparisonTable() {
-            const container = document.getElementById('comparison-table-container');
-            const sortedCharacters = [...characters].sort((a, b) => parseInt(b.details["身長"]) - parseInt(a.details["身長"]));
-            const maxHeight = Math.max(...sortedCharacters.map(c => parseInt(c.details["身長"])));
-            let tableHTML = `<table class="w-full text-left border-collapse"><thead><tr><th class="p-4 border-b-2 font-bold">名前</th><th class="p-4 border-b-2 font-bold">身長</th><th class="p-4 border-b-2 font-bold w-1/2 sm:w-2/3"></th></tr></thead><tbody>`;
-            sortedCharacters.forEach(char => {
-                const height = parseInt(char.details["身長"]);
-                const barWidth = (height / maxHeight * 100).toFixed(2);
-                tableHTML += `<tr class="hover:bg-gray-50"><td class="p-4 border-b flex items-center"><img src="${char.image}" alt="${char.name}" class="w-10 h-10 rounded-full mr-4 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/40x40/ccc/ffffff?text=N/A';"><span class="font-medium">${char.name}</span></td><td class="p-4 border-b font-mono">${char.details["身長"]}</td><td class="p-4 border-b"><div class="w-full bg-gray-200 rounded-full h-4"><div class="height-bar h-4 rounded-full" style="width: ${barWidth}%;"></div></div></td></tr>`;
-            });
-            container.innerHTML = tableHTML + `</tbody></table>`;
-        }
-
-        // --- モーダル処理 ---
+        // モーダルを開く関数
         function openModal(id) {
             const character = characters.find(c => c.id === id);
             if (!character) return;
+
             let detailsHtml = '';
             for (const [key, value] of Object.entries(character.details)) {
-                detailsHtml += `<div class="flex border-b py-2"><dt class="w-1/3 text-gray-500">${key}</dt><dd class="w-2/3">${value}</dd></div>`;
+                detailsHtml += `<div class="flex border-b py-3"><dt class="w-1/3 text-gray-500 font-semibold">${key}</dt><dd class="w-2/3">${value}</dd></div>`;
             }
+
             modalContent.innerHTML = `
                 <button id="close-modal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
                 <div class="flex flex-col md:flex-row">
-                    <div class="md:w-1/2"><img src="${character.image}" alt="${character.name}" class="w-full h-full object-cover md:rounded-l-lg" onerror="this.onerror=null;this.src='https://placehold.co/600x800/ccc/ffffff?text=Image+Not+Found';"></div>
-                    <div class="md:w-1/2 p-8 flex flex-col">
-                        <h2 class="text-4xl font-bold mb-2">${character.name}</h2>
-                        <p class="text-lg text-gray-600 mb-6">${character.tagline}</p>
-                        <p class="text-gray-700 mb-6 leading-relaxed">${character.profile}</p>
-                        <dl class="text-sm">${detailsHtml}</dl>
-                        <div class="mt-6 pt-4 border-t">
-                            <button id="generate-story-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
-                                <span class="mr-2">✨</span> 新しいエピソードを生成
-                            </button>
-                            <div id="gemini-story-output" class="mt-4 p-4 bg-gray-100 rounded-lg text-sm text-gray-700 whitespace-pre-wrap" style="display: none;"></div>
-                            <div id="gemini-story-loader" class="mt-4 flex justify-center" style="display: none;"><div class="spinner"></div></div>
-                        </div>
+                    <div class="md:w-2/5">
+                        <img src="${character.image}" alt="${character.name}" class="w-full h-full object-cover md:rounded-l-lg" onerror="this.onerror=null;this.src='https://placehold.co/400x600/ccc/ffffff?text=Image+Not+Found';">
                     </div>
-                </div>`;
+                    <div class="md:w-3/5 p-8 flex flex-col">
+                        <h2 class="text-3xl font-bold mb-4">${character.name}</h2>
+                        <div class="text-sm space-y-2">${detailsHtml}</div>
+                    </div>
+                </div>
+            `;
+            
             modal.classList.remove('hidden');
             setTimeout(() => modal.classList.add('modal-enter-active'), 10);
             document.getElementById('close-modal').addEventListener('click', closeModal);
-            document.getElementById('generate-story-btn').addEventListener('click', () => generateStory(character));
         }
+
+        // モーダルを閉じる関数
         function closeModal() {
             modal.classList.remove('modal-enter-active');
             modal.classList.add('modal-leave-active');
-            setTimeout(() => { modal.classList.add('hidden'); modal.classList.remove('modal-leave-active'); }, 200);
-        }
-        modal.addEventListener('click', (e) => e.target === modal && closeModal());
-        document.addEventListener('keydown', (e) => e.key === 'Escape' && !modal.classList.contains('hidden') && closeModal());
-
-        async function generateStory(character) {
-            const outputDiv = document.getElementById('gemini-story-output');
-            const loader = document.getElementById('gemini-story-loader');
-            const button = document.getElementById('generate-story-btn');
-            outputDiv.style.display = 'none'; loader.style.display = 'flex'; button.disabled = true;
-            button.classList.add('opacity-50', 'cursor-not-allowed');
-            const prompt = `あなたはプロの作家です。以下のキャラクター設定に基づき、このキャラクターが登場する新しい短編エピソード（400字程度）を創作してください。物語は読者の興味を引くような、意外な展開やキャラクターの魅力が伝わる内容にしてください。\n\n---\n\n名前: ${character.name}\nキャッチコピー: ${character.tagline}\nプロフィール: ${character.profile}`;
-            const generatedText = await callGemini(prompt);
-            outputDiv.textContent = generatedText;
-            outputDiv.style.display = 'block'; loader.style.display = 'none'; button.disabled = false;
-            button.classList.remove('opacity-50', 'cursor-not-allowed');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('modal-leave-active');
+            }, 200);
         }
 
-        // --- 対話モーダル処理 ---
-        function openDialogueModal(char1, char2, relationship) {
-            const title = document.getElementById('dialogue-modal-title');
-            const button = document.getElementById('generate-dialogue-btn');
-            const output = document.getElementById('gemini-dialogue-output');
-            const loader = document.getElementById('gemini-dialogue-loader');
-            title.textContent = `${char1.name} と ${char2.name} (${relationship.label})`;
-            output.style.display = 'none'; output.textContent = ''; loader.style.display = 'none';
-            const newButton = button.cloneNode(true);
-            button.parentNode.replaceChild(newButton, button);
-            newButton.addEventListener('click', () => generateDialogue(char1, char2, relationship));
-            dialogueModal.classList.remove('hidden');
-            setTimeout(() => dialogueModal.classList.add('modal-enter-active'), 10);
-        }
-        function closeDialogueModal() {
-            dialogueModal.classList.remove('modal-enter-active');
-            dialogueModal.classList.add('modal-leave-active');
-            setTimeout(() => { dialogueModal.classList.add('hidden'); dialogueModal.classList.remove('modal-leave-active'); }, 200);
-        }
-        closeDialogueModalBtn.addEventListener('click', closeDialogueModal);
-        dialogueModal.addEventListener('click', (e) => e.target === dialogueModal && closeDialogueModal());
+        // モーダルの外側やEscapeキーで閉じるイベントリスナー
+        modal.addEventListener('click', (event) => (event.target === modal) && closeModal());
+        document.addEventListener('keydown', (event) => (event.key === 'Escape' && !modal.classList.contains('hidden')) && closeModal());
 
-        async function generateDialogue(char1, char2, relationship) {
-            const outputDiv = document.getElementById('gemini-dialogue-output');
-            const loader = document.getElementById('gemini-dialogue-loader');
-            const button = document.getElementById('generate-dialogue-btn');
-            outputDiv.style.display = 'none'; loader.style.display = 'flex'; button.disabled = true;
-            button.classList.add('opacity-50', 'cursor-not-allowed');
-            const prompt = `あなたはプロの脚本家です。以下の二人のキャラクターの関係性に基づき、彼らの性格がよく表れた短い会話劇（セリフの掛け合い）を創作してください。\n\n---\n\nキャラクターA:\n名前: ${char1.name}\nプロフィール: ${char1.profile}\n\nキャラクターB:\n名前: ${char2.name}\nプロフィール: ${char2.profile}\n\n二人の関係: ${relationship.label}`;
-            const generatedText = await callGemini(prompt);
-            outputDiv.textContent = generatedText;
-            outputDiv.style.display = 'block'; loader.style.display = 'none'; button.disabled = false;
-            button.classList.remove('opacity-50', 'cursor-not-allowed');
-        }
+        // 初期化処理
+        displayCharacters();
 
-        // --- 初期化 ---
-        function initialize() {
-            displayGallery();
-            switchView('gallery');
+    } catch (error) {
+        // エラーが発生した場合、メッセージを表示
+        console.error("サイトの初期化中にエラーが発生しました:", error);
+        const errorContainer = document.getElementById('error-container');
+        if (errorContainer) {
+            errorContainer.classList.remove('hidden');
         }
-        initialize();
+    }
     </script>
+
 </body>
 </html>
+

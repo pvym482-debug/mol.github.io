@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>創作学園名鑑</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+        }
+        .character-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+        }
+        .character-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .modal-enter-active { opacity: 1; transform: scale(1); }
+        .modal-leave-active { opacity: 0; transform: scale(0.95); }
+        .modal-enter, .modal-leave-active { opacity: 0; transform: scale(0.95); }
+        #modal-content { transition: all 0.3s ease-out; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- ヘッダー -->
+    <header class="bg-white shadow-md py-6">
+        <div class="container mx-auto px-6 text-center">
+            <h1 class="text-4xl font-bold text-gray-900">〇〇学園 生徒名鑑</h1>
+            <p class="text-gray-600 mt-2">個性豊かな生徒たちが集う場所</p>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="container mx-auto px-6 py-12">
+        <!-- エラーメッセージ表示エリア -->
+        <div id="error-container" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
+            <strong class="font-bold">エラー：</strong>
+            <span class="block sm:inline">キャラクターデータの読み込みに失敗しました。カンマや括弧の閉じ忘れがないか、データを確認してください。</span>
+        </div>
+
+        <!-- キャラクターギャラリー -->
+        <div id="character-gallery" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+            <!-- キャラクターカードはJavaScriptで生成されます -->
+        </div>
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-white mt-12 py-6">
+        <div class="container mx-auto px-6 text-center">
+            <p class="text-gray-500 text-sm">&copy; 2024 あなたの名前. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <!-- モーダルウィンドウ（最初は非表示） -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden">
+        <div id="modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative modal-enter">
+            <!-- モーダルの内容はJavaScriptで生成されます -->
+        </div>
+    </div>
+
+    <script>
+    try {
+        // === あなたのキャラクターデータ36人分をここに入力してください ===
+        // データ入力の際は、各キャラクターの {} の後にカンマ(,)を忘れないようにご注意ください。
+        // 最後のキャラクターの後にはカンマは不要です。
+        const characters = [
+            {
+                id: 1,
+                name: "朝日 陽太 (アサヒ ヨウタ)",
+                image: "https://placehold.co/400x600/ffedd5/4f46e5?text=Yota+A.",
+                details: {
+                    "出席番号": "1番",
+                    "誕生日": "8月1日",
+                    "部活": "バスケ部",
+                    "好きなこと": "体を動かすこと、友達と話すこと",
+                    "プロフィール": "いつも明るく元気なクラスの中心人物。誰にでも分け隔てなく接するムードメーカー。勉強は少し苦手。"
+                }
+            },
+            {
+                id: 2,
+                name: "月島 静 (ツキシマ シズカ)",
+                image: "https://placehold.co/400x600/e0e7ff/1e3a8a?text=Shizuka+T.",
+                details: {
+                    "出席番号": "15番",
+                    "誕生日": "11月10日",
+                    "部活": "文芸部",
+                    "好きなこと": "読書、静かな場所",
+                    "プロフィール": "物静かでミステリアスな雰囲気を持つ少女。成績優秀だが、あまり人と話すのは得意ではない。夜空を眺めるのが好き。"
+                }
+            },
+            {
+                id: 3,
+                name: "火野 駆 (ヒノ カケル)",
+                image: "https://placehold.co/400x600/fee2e2/b91c1c?text=Kakeru+H.",
+                details: {
+                    "出席番号": "22番",
+                    "誕生日": "4月25日",
+                    "部活": "陸上部",
+                    "好きなこと": "勝負事、辛い食べ物",
+                    "プロフィール": "負けず嫌いで情熱的な性格。短距離走のエースで、常に上を目指している。少し短気なのが玉に瑕。"
+                }
+            },
+            {
+                id: 4,
+                name: "水瀬 潤 (ミナセ ジュン)",
+                image: "https://placehold.co/400x600/dbeafe/1d4ed8?text=Jun+M.",
+                details: {
+                    "出席番号": "28番",
+                    "誕生日": "6月15日",
+                    "部活": "水泳部",
+                    "好きなこと": "音楽鑑賞、昼寝",
+                    "プロフィール": "マイペースで掴みどころのない性格。天才的な泳ぎのセンスを持つが、普段はのんびりしていることが多い。"
+                }
+            },
+            {
+                id: 5,
+                name: "木下 葉子 (キノシタ ヨウコ)",
+                image: "https://placehold.co/400x600/dcfce7/166534?text=Yoko+K.",
+                details: {
+                    "出席番号": "8番",
+                    "誕生日": "3月3日",
+                    "部活": "園芸部",
+                    "好きなこと": "植物の世話、お菓子作り",
+                    "プロフィール": "おっとりしていて優しい、癒やし系の女の子。学園の花壇の世話をいつもしている。少し天然なところがある。"
+                }
+            },
+            {
+                id: 6,
+                name: "金森 巧 (カナモリ タクミ)",
+                image: "https://placehold.co/400x600/fef9c3/a16207?text=Takumi+K.",
+                details: {
+                    "出席番号": "5番",
+                    "誕生日": "9月20日",
+                    "部活": "美術部",
+                    "好きなこと": "絵を描くこと、美しいもの",
+                    "プロフィール": "美的センスに優れた芸術家肌。繊細で完璧主義な一面も。自分の作品には絶対の自信を持っている。"
+                }
+            }
+            // ... ここにあなたのキャラクターを続けて追加してください (合計36人分)
+        ];
+        // ==========================================================
+
+        const gallery = document.getElementById('character-gallery');
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modal-content');
+
+        // キャラクターカードを表示する関数
+        function displayCharacters() {
+            gallery.innerHTML = '';
+            characters.forEach(char => {
+                const card = document.createElement('div');
+                card.className = 'character-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer';
+                card.innerHTML = `
+                    <img src="${char.image}" alt="${char.name}" class="w-full h-48 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x600/ccc/ffffff?text=Image+Not+Found';">
+                    <div class="p-3 text-center">
+                        <h3 class="text-md font-bold truncate">${char.name}</h3>
+                    </div>
+                `;
+                card.addEventListener('click', () => openModal(char.id));
+                gallery.appendChild(card);
+            });
+        }
+
+        // モーダルを開く関数
+        function openModal(id) {
+            const character = characters.find(c => c.id === id);
+            if (!character) return;
+
+            let detailsHtml = '';
+            for (const [key, value] of Object.entries(character.details)) {
+                detailsHtml += `<div class="flex border-b py-3"><dt class="w-1/3 text-gray-500 font-semibold">${key}</dt><dd class="w-2/3">${value}</dd></div>`;
+            }
+
+            modalContent.innerHTML = `
+                <button id="close-modal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
+                <div class="flex flex-col md:flex-row">
+                    <div class="md:w-2/5">
+                        <img src="${character.image}" alt="${character.name}" class="w-full h-full object-cover md:rounded-l-lg" onerror="this.onerror=null;this.src='https://placehold.co/400x600/ccc/ffffff?text=Image+Not+Found';">
+                    </div>
+                    <div class="md:w-3/5 p-8 flex flex-col">
+                        <h2 class="text-3xl font-bold mb-4">${character.name}</h2>
+                        <div class="text-sm space-y-2">${detailsHtml}</div>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('modal-enter-active'), 10);
+            document.getElementById('close-modal').addEventListener('click', closeModal);
+        }
+
+        // モーダルを閉じる関数
+        function closeModal() {
+            modal.classList.remove('modal-enter-active');
+            modal.classList.add('modal-leave-active');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('modal-leave-active');
+            }, 200);
+        }
+
+        // モーダルの外側やEscapeキーで閉じるイベントリスナー
+        modal.addEventListener('click', (event) => (event.target === modal) && closeModal());
+        document.addEventListener('keydown', (event) => (event.key === 'Escape' && !modal.classList.contains('hidden')) && closeModal());
+
+        // 初期化処理
+        displayCharacters();
+
+    } catch (error) {
+        // エラーが発生した場合、メッセージを表示
+        console.error("サイトの初期化中にエラーが発生しました:", error);
+        const errorContainer = document.getElementById('error-container');
+        if (errorContainer) {
+            errorContainer.classList.remove('hidden');
+        }
+    }
+    </script>
+
+</body>
+</html>

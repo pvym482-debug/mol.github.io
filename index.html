@@ -14,7 +14,7 @@
         .modal-enter-active { opacity: 1; transform: scale(1); }
         .modal-leave-active { opacity: 0; transform: scale(0.95); }
         .modal-enter, .modal-leave-active { opacity: 0; transform: scale(0.95); }
-        #modal-content { transition: all 0.3s ease-out; }
+        #modal-content, #dialogue-modal-content { transition: all 0.3s ease-out; }
 
         /* カードホバーエフェクト */
         .character-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
@@ -60,6 +60,19 @@
             background: linear-gradient(to right, #60a5fa, #3b82f6);
             transition: width 0.5s ease-in-out;
         }
+        /* ローディングスピナー */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -92,6 +105,7 @@
             <div class="bg-white p-4 sm:p-8 rounded-lg shadow-lg">
                 <div id="chart-container" class="relative w-full h-[600px] bg-gray-50 rounded-md overflow-hidden">
                     <svg id="chart-svg" class="absolute top-0 left-0 w-full h-full" style="pointer-events: none;"></svg>
+                    <!-- ラベルはJSでHTML要素として追加 -->
                 </div>
             </div>
         </div>
@@ -112,10 +126,28 @@
         </div>
     </footer>
 
-    <!-- モーダルウィンドウ -->
+    <!-- キャラクター詳細モーダルウィンドウ -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden modal-enter">
         <div id="modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto relative"></div>
     </div>
+
+    <!-- 対話生成モーダル -->
+    <div id="dialogue-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 z-50 hidden modal-enter">
+        <div id="dialogue-modal-content" class="bg-white rounded-lg shadow-2xl w-full max-w-lg relative p-8">
+            <button id="close-dialogue-modal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
+            <h2 id="dialogue-modal-title" class="text-2xl font-bold mb-4 text-center"></h2>
+            <div class="mt-6">
+                <button id="generate-dialogue-btn" class="w-full bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                    <span class="mr-2">✨</span> 会話のアイデアを生成
+                </button>
+                <div id="gemini-dialogue-output" class="mt-4 p-4 bg-gray-100 rounded-lg text-sm text-gray-700 whitespace-pre-wrap h-64 overflow-y-auto" style="display: none;"></div>
+                <div id="gemini-dialogue-loader" class="mt-4 flex justify-center" style="display: none;">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         // === データ設定エリア ===
@@ -137,8 +169,48 @@
         const navGallery = document.getElementById('nav-gallery');
         const navChart = document.getElementById('nav-chart');
         const navComparison = document.getElementById('nav-comparison');
+        
         const modal = document.getElementById('modal');
         const modalContent = document.getElementById('modal-content');
+        
+        const dialogueModal = document.getElementById('dialogue-modal');
+        const closeDialogueModalBtn = document.getElementById('close-dialogue-modal');
+
+        // --- Gemini API呼び出し ---
+        async function callGemini(prompt, retries = 3, delay = 1000) {
+            const apiKey = ""; // APIキーは空のままにします。Canvas環境で自動的に提供されます。
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const result = await response.json();
+                    
+                    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        return result.candidates[0].content.parts[0].text;
+                    } else {
+                        if (result.candidates?.[0]?.finishReason === 'SAFETY') {
+                            return "生成されたコンテンツは安全性の設定によりブロックされました。";
+                        }
+                        throw new Error("APIからの予期しないレスポンス形式です。");
+                    }
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed:`, error);
+                    if (i === retries - 1) return `エラーが発生しました: ${error.message}`;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; // Exponential backoff
+                }
+            }
+        }
 
         // --- 表示切り替えロジック ---
         function switchView(view) {
@@ -167,8 +239,6 @@
                 const card = document.createElement('div');
                 card.className = 'character-card bg-white rounded-lg shadow-md overflow-hidden cursor-pointer';
                 card.innerHTML = `<img src="${char.image}" alt="${char.name}" class="w-full h-80 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x600/ccc/ffffff?text=Image+Not+Found';"><div class="p-4"><h3 class="text-xl font-bold">${char.name}</h3><p class="text-gray-600 text-sm mt-1">${char.tagline}</p></div>`;
-                
-                // ここでカードにクリック（タップ）イベントを追加しています
                 card.addEventListener('click', () => openModal(char.id));
                 gallery.appendChild(card);
             });
@@ -178,8 +248,9 @@
         function displayChart() {
             const container = document.getElementById('chart-container');
             const svg = document.getElementById('chart-svg');
-            container.querySelectorAll('.chart-node').forEach(n => n.remove());
+            container.querySelectorAll('.chart-node, .chart-label').forEach(el => el.remove());
             svg.innerHTML = '';
+            
             const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
             relationships.forEach(rel => {
                 if(rel.oneway) {
@@ -190,15 +261,16 @@
                 }
             });
             svg.appendChild(defs);
+            
             characters.forEach(char => {
                 const node = document.createElement('div');
                 node.className = 'chart-node';
-                node.style.top = char.position.top;
-                node.style.left = char.position.left;
+                node.style.top = char.position.top; node.style.left = char.position.left;
                 node.innerHTML = `<img src="${char.image}" alt="${char.name}" onerror="this.onerror=null;this.src='https://placehold.co/80x80/ccc/ffffff?text=N/A';"><p>${char.name}</p>`;
                 node.addEventListener('click', () => openModal(char.id));
                 container.appendChild(node);
             });
+            
             relationships.forEach(rel => {
                 const sourceChar = characters.find(c => c.id === rel.source);
                 const targetChar = characters.find(c => c.id === rel.target);
@@ -208,18 +280,23 @@
                 const y1 = parseFloat(sourceChar.position.top) / 100 * contRect.height;
                 const x2 = parseFloat(targetChar.position.left) / 100 * contRect.width;
                 const y2 = parseFloat(targetChar.position.top) / 100 * contRect.height;
+                
                 const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                 line.setAttribute('x1', x1); line.setAttribute('y1', y1); line.setAttribute('x2', x2); line.setAttribute('y2', y2);
                 line.setAttribute('stroke', rel.color || '#6b7280'); line.setAttribute('stroke-width', '2.5');
                 if (rel.oneway) line.setAttribute('marker-start', `url(#arrow-${rel.color.replace('#', '')})`);
                 svg.appendChild(line);
-                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('x', (x1 + x2) / 2); text.setAttribute('y', (y1 + y2) / 2 - 5);
-                text.setAttribute('text-anchor', 'middle'); text.setAttribute('fill', rel.color || '#1f2937');
-                text.setAttribute('font-size', '14'); text.setAttribute('font-weight', 'bold');
-                text.style.paintOrder = 'stroke'; text.style.stroke = 'white'; text.style.strokeWidth = '3px';
-                text.textContent = rel.label;
-                svg.appendChild(text);
+
+                const labelDiv = document.createElement('div');
+                labelDiv.className = 'chart-label absolute px-2 py-1 rounded-md text-sm font-bold cursor-pointer transition-transform hover:scale-110';
+                labelDiv.style.left = `${(x1 + x2) / 2}px`;
+                labelDiv.style.top = `${(y1 + y2) / 2}px`;
+                labelDiv.style.transform = 'translate(-50%, -50%)';
+                labelDiv.style.color = rel.color || '#1f2937';
+                labelDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+                labelDiv.textContent = rel.label;
+                labelDiv.addEventListener('click', () => openDialogueModal(sourceChar, targetChar, rel));
+                container.appendChild(labelDiv);
             });
         }
         new ResizeObserver(displayChart).observe(document.getElementById('chart-container'));
@@ -227,41 +304,18 @@
         // --- 比較表表示 ---
         function displayComparisonTable() {
             const container = document.getElementById('comparison-table-container');
-            const sortedCharacters = [...characters].sort((a, b) => {
-                const heightA = parseInt(a.details["身長"]);
-                const heightB = parseInt(b.details["身長"]);
-                return heightB - heightA; // 身長が高い順
-            });
-
+            const sortedCharacters = [...characters].sort((a, b) => parseInt(b.details["身長"]) - parseInt(a.details["身長"]));
             const maxHeight = Math.max(...sortedCharacters.map(c => parseInt(c.details["身長"])));
-
             let tableHTML = `<table class="w-full text-left border-collapse"><thead><tr><th class="p-4 border-b-2 font-bold">名前</th><th class="p-4 border-b-2 font-bold">身長</th><th class="p-4 border-b-2 font-bold w-1/2 sm:w-2/3"></th></tr></thead><tbody>`;
-            
             sortedCharacters.forEach(char => {
                 const height = parseInt(char.details["身長"]);
                 const barWidth = (height / maxHeight * 100).toFixed(2);
-                tableHTML += `
-                    <tr class="hover:bg-gray-50">
-                        <td class="p-4 border-b flex items-center">
-                            <img src="${char.image}" alt="${char.name}" class="w-10 h-10 rounded-full mr-4 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/40x40/ccc/ffffff?text=N/A';">
-                            <span class="font-medium">${char.name}</span>
-                        </td>
-                        <td class="p-4 border-b font-mono">${char.details["身長"]}</td>
-                        <td class="p-4 border-b">
-                            <div class="w-full bg-gray-200 rounded-full h-4">
-                                <div class="height-bar h-4 rounded-full" style="width: ${barWidth}%;"></div>
-                            </div>
-                        </td>
-                    </tr>
-                `;
+                tableHTML += `<tr class="hover:bg-gray-50"><td class="p-4 border-b flex items-center"><img src="${char.image}" alt="${char.name}" class="w-10 h-10 rounded-full mr-4 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/40x40/ccc/ffffff?text=N/A';"><span class="font-medium">${char.name}</span></td><td class="p-4 border-b font-mono">${char.details["身長"]}</td><td class="p-4 border-b"><div class="w-full bg-gray-200 rounded-full h-4"><div class="height-bar h-4 rounded-full" style="width: ${barWidth}%;"></div></div></td></tr>`;
             });
-
-            tableHTML += `</tbody></table>`;
-            container.innerHTML = tableHTML;
+            container.innerHTML = tableHTML + `</tbody></table>`;
         }
 
         // --- モーダル処理 ---
-        // この関数が、カードがクリックされたときに呼び出されます
         function openModal(id) {
             const character = characters.find(c => c.id === id);
             if (!character) return;
@@ -269,10 +323,28 @@
             for (const [key, value] of Object.entries(character.details)) {
                 detailsHtml += `<div class="flex border-b py-2"><dt class="w-1/3 text-gray-500">${key}</dt><dd class="w-2/3">${value}</dd></div>`;
             }
-            modalContent.innerHTML = `<button id="close-modal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button><div class="flex flex-col md:flex-row"><div class="md:w-1/2"><img src="${character.image}" alt="${character.name}" class="w-full h-full object-cover md:rounded-l-lg" onerror="this.onerror=null;this.src='https://placehold.co/600x800/ccc/ffffff?text=Image+Not+Found';"></div><div class="md:w-1/2 p-8 flex flex-col"><h2 class="text-4xl font-bold mb-2">${character.name}</h2><p class="text-lg text-gray-600 mb-6">${character.tagline}</p><p class="text-gray-700 mb-6 leading-relaxed">${character.profile}</p><dl class="text-sm">${detailsHtml}</dl></div></div>`;
+            modalContent.innerHTML = `
+                <button id="close-modal" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800 text-3xl z-10">&times;</button>
+                <div class="flex flex-col md:flex-row">
+                    <div class="md:w-1/2"><img src="${character.image}" alt="${character.name}" class="w-full h-full object-cover md:rounded-l-lg" onerror="this.onerror=null;this.src='https://placehold.co/600x800/ccc/ffffff?text=Image+Not+Found';"></div>
+                    <div class="md:w-1/2 p-8 flex flex-col">
+                        <h2 class="text-4xl font-bold mb-2">${character.name}</h2>
+                        <p class="text-lg text-gray-600 mb-6">${character.tagline}</p>
+                        <p class="text-gray-700 mb-6 leading-relaxed">${character.profile}</p>
+                        <dl class="text-sm">${detailsHtml}</dl>
+                        <div class="mt-6 pt-4 border-t">
+                            <button id="generate-story-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center">
+                                <span class="mr-2">✨</span> 新しいエピソードを生成
+                            </button>
+                            <div id="gemini-story-output" class="mt-4 p-4 bg-gray-100 rounded-lg text-sm text-gray-700 whitespace-pre-wrap" style="display: none;"></div>
+                            <div id="gemini-story-loader" class="mt-4 flex justify-center" style="display: none;"><div class="spinner"></div></div>
+                        </div>
+                    </div>
+                </div>`;
             modal.classList.remove('hidden');
             setTimeout(() => modal.classList.add('modal-enter-active'), 10);
             document.getElementById('close-modal').addEventListener('click', closeModal);
+            document.getElementById('generate-story-btn').addEventListener('click', () => generateStory(character));
         }
         function closeModal() {
             modal.classList.remove('modal-enter-active');
@@ -281,6 +353,54 @@
         }
         modal.addEventListener('click', (e) => e.target === modal && closeModal());
         document.addEventListener('keydown', (e) => e.key === 'Escape' && !modal.classList.contains('hidden') && closeModal());
+
+        async function generateStory(character) {
+            const outputDiv = document.getElementById('gemini-story-output');
+            const loader = document.getElementById('gemini-story-loader');
+            const button = document.getElementById('generate-story-btn');
+            outputDiv.style.display = 'none'; loader.style.display = 'flex'; button.disabled = true;
+            button.classList.add('opacity-50', 'cursor-not-allowed');
+            const prompt = `あなたはプロの作家です。以下のキャラクター設定に基づき、このキャラクターが登場する新しい短編エピソード（400字程度）を創作してください。物語は読者の興味を引くような、意外な展開やキャラクターの魅力が伝わる内容にしてください。\n\n---\n\n名前: ${character.name}\nキャッチコピー: ${character.tagline}\nプロフィール: ${character.profile}`;
+            const generatedText = await callGemini(prompt);
+            outputDiv.textContent = generatedText;
+            outputDiv.style.display = 'block'; loader.style.display = 'none'; button.disabled = false;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+
+        // --- 対話モーダル処理 ---
+        function openDialogueModal(char1, char2, relationship) {
+            const title = document.getElementById('dialogue-modal-title');
+            const button = document.getElementById('generate-dialogue-btn');
+            const output = document.getElementById('gemini-dialogue-output');
+            const loader = document.getElementById('gemini-dialogue-loader');
+            title.textContent = `${char1.name} と ${char2.name} (${relationship.label})`;
+            output.style.display = 'none'; output.textContent = ''; loader.style.display = 'none';
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            newButton.addEventListener('click', () => generateDialogue(char1, char2, relationship));
+            dialogueModal.classList.remove('hidden');
+            setTimeout(() => dialogueModal.classList.add('modal-enter-active'), 10);
+        }
+        function closeDialogueModal() {
+            dialogueModal.classList.remove('modal-enter-active');
+            dialogueModal.classList.add('modal-leave-active');
+            setTimeout(() => { dialogueModal.classList.add('hidden'); dialogueModal.classList.remove('modal-leave-active'); }, 200);
+        }
+        closeDialogueModalBtn.addEventListener('click', closeDialogueModal);
+        dialogueModal.addEventListener('click', (e) => e.target === dialogueModal && closeDialogueModal());
+
+        async function generateDialogue(char1, char2, relationship) {
+            const outputDiv = document.getElementById('gemini-dialogue-output');
+            const loader = document.getElementById('gemini-dialogue-loader');
+            const button = document.getElementById('generate-dialogue-btn');
+            outputDiv.style.display = 'none'; loader.style.display = 'flex'; button.disabled = true;
+            button.classList.add('opacity-50', 'cursor-not-allowed');
+            const prompt = `あなたはプロの脚本家です。以下の二人のキャラクターの関係性に基づき、彼らの性格がよく表れた短い会話劇（セリフの掛け合い）を創作してください。\n\n---\n\nキャラクターA:\n名前: ${char1.name}\nプロフィール: ${char1.profile}\n\nキャラクターB:\n名前: ${char2.name}\nプロフィール: ${char2.profile}\n\n二人の関係: ${relationship.label}`;
+            const generatedText = await callGemini(prompt);
+            outputDiv.textContent = generatedText;
+            outputDiv.style.display = 'block'; loader.style.display = 'none'; button.disabled = false;
+            button.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
 
         // --- 初期化 ---
         function initialize() {
